@@ -48,6 +48,7 @@ Vec3f PathTracer::traceSample(Vec2u pixel, PathSampleGenerator &sampler)
     bool didHit = _scene->intersect(ray, data, info);
     bool wasSpecular = true;
     while ((didHit || medium) && bounce < _settings.maxBounces) {
+       // return (info.Ng+1.f)/2;
         bool hitSurface = true;
         if (medium) {
             mediumSample.continuedWeight = throughput;
@@ -70,7 +71,7 @@ Vec3f PathTracer::traceSample(Vec2u pixel, PathSampleGenerator &sampler)
             Vec3f transmittance(-1.0f);
             bool terminate = !handleSurface(surfaceEvent, data, info, medium, bounce, false,
                     _settings.enableLightSampling && (mediumBounces > 0 || _settings.includeSurfaces), ray, throughput, emission, wasSpecular, state, &transmittance);
-
+          //  return emission;
             if (!info.bsdf->lobes().isPureDirac())
                 if (mediumBounces == 0 && !_settings.includeSurfaces)
                     return emission;

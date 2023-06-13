@@ -180,7 +180,7 @@ void PlasticBsdf::prepareForRender()
 {
     _scaledSigmaA = _thickness*_sigmaA;
     _avgTransmittance = std::exp(-2.0f*_scaledSigmaA.avg());
-
+     _avgTransmittance = 1.f;
     _diffuseFresnel = Fresnel::computeDiffuseFresnel(_ior, 1000000);
 }
 

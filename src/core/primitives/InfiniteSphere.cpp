@@ -169,6 +169,7 @@ bool InfiniteSphere::sampleDirect(uint32 /*threadIndex*/, const Vec3f &/*p*/, Pa
         Vec2f uv = _emission->sample(MAP_SPHERICAL, sampler.next2D());
         float sinTheta;
         sample.d = uvToDirection(uv, sinTheta);
+     //   sample.d = Vec3f(uv.x(),uv.y(),0)
         sample.pdf = INV_PI*INV_TWO_PI*_emission->pdf(MAP_SPHERICAL, uv)/sinTheta;
         sample.dist = Ray::infinity();
         return sample.pdf != 0.0f;
@@ -240,6 +241,8 @@ Vec3f InfiniteSphere::evalDirectionalEmission(const PositionSample &point, const
 
 Vec3f InfiniteSphere::evalDirect(const IntersectionTemporary &/*data*/, const IntersectionInfo &info) const
 {
+  //  return (-info.Ng+1.f)/2.f;
+   // return Vec3f (info.uv.x(),info.uv.y(),0.f);
     return (*_emission)[info.uv];
 }
 

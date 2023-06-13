@@ -487,6 +487,7 @@ void Curves::intersectionInfo(const IntersectionTemporary &data, IntersectionInf
 
     uint32 p0 = isect.curveP0;
     float t = isect.uv.x();
+    //p0 = 5;t=0.5;
 
     Vec3f tangent = BSpline::quadraticDeriv(_nodeData[p0].xyz(), _nodeData[p0 + 1].xyz(), _nodeData[p0 + 2].xyz(), t);
     tangent.normalize();
@@ -503,7 +504,7 @@ void Curves::intersectionInfo(const IntersectionTemporary &data, IntersectionInf
         localP -= tangent*(localP.dot(tangent));
         info.Ng = info.Ns = localP.normalized();
     }
-
+    //info.Ng = Vec3f(double (p0)/double (_nodeData.size()));
     info.uv = isect.uv;
     info.primitive = this;
     info.bsdf = _bsdf.get();

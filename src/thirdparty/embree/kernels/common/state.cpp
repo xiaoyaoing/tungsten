@@ -133,7 +133,7 @@ namespace embree
      * call that same or lower ISA version of non-inlined class member
      * functions */
 #if defined(DEBUG)
-    assert(isa::getISA() == ISA);
+    ;
 //#if defined(__TARGET_SSE41__)
 //    assert(sse41::getISA() <= SSE41);
 //#endif

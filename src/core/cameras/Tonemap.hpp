@@ -23,7 +23,7 @@ public:
     friend Type;
 
     static inline Vec3f tonemap(TypeEnum type, const Vec3f &c)
-    {
+    {//
         switch (type) {
         case LinearOnly:
             return c;

@@ -618,9 +618,9 @@ bool saveHdr(const Path &path, const float *img, int w, int h, int channels)
 
     return false;
 }
-
 bool saveLdr(const Path &path, const uint8 *img, int w, int h, int channels)
 {
+    path.setExtension("png");
     if (path.testExtension("png"))
         return savePng(path, img, w, h, channels);
 

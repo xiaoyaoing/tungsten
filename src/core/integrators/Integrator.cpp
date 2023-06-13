@@ -66,8 +66,8 @@ void Integrator::writeBuffers(const std::string &suffix, bool overwrite)
     for (uint32 i = 0; i < res.product(); ++i)
         ldr[i] = Vec3c(clamp(Vec3i(_scene->cam().tonemap(hdr[i])*255.0f), Vec3i(0), Vec3i(255)));
 
-    const RendererSettings &settings = _scene->rendererSettings();
-
+    RendererSettings settings = _scene->rendererSettings();
+    settings.setOutputFile(settings.outputFile().setExtension("png"));
     if (!settings.outputFile().empty())
         ImageIO::saveLdr(incrementalFilename(settings.outputFile(), suffix, overwrite),
                 &ldr[0].x(), res.x(), res.y(), 3);

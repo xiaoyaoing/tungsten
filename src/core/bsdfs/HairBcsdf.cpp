@@ -10,6 +10,7 @@
 
 namespace Tungsten {
 
+
 HairBcsdf::HairBcsdf()
 : _scaleAngleDeg(2.0f),
   _melaninRatio(0.5f),
@@ -197,6 +198,7 @@ Vec3f HairBcsdf::eval(const SurfaceScatterEvent &event) const
     if (phi < 0.0f)
         phi += TWO_PI;
 
+
     // Lobe shift due to hair scale tilt, following the values in
     // "Importance Sampling for Physically-Based Hair Fiber Models"
     // rather than the earlier paper by Marschner et al. I believe
@@ -209,6 +211,8 @@ Vec3f HairBcsdf::eval(const SurfaceScatterEvent &event) const
     float MR   = M(_vR,   std::sin(thetaIR),   sinThetaO, std::cos(thetaIR),   cosThetaO);
     float MTT  = M(_vTT,  std::sin(thetaITT),  sinThetaO, std::cos(thetaITT),  cosThetaO);
     float MTRT = M(_vTRT, std::sin(thetaITRT), sinThetaO, std::cos(thetaITRT), cosThetaO);
+
+
 
     return   MR*  _nR->eval(phi, cosThetaD)
          +  MTT* _nTT->eval(phi, cosThetaD)
@@ -266,6 +270,15 @@ bool HairBcsdf::sample(SurfaceScatterEvent &event) const
     float phi, phiPdf;
     lobe->sample(cosThetaD, xiN.y(), phi, phiPdf);
 
+
+//    Float gammaI = std::asin(clamp(h, - 1.0f, 1.0f));
+//    Float gammaT = std::asin(clamp(h / iorPrime, - 1.0f, 1.0f));
+//
+//
+//    deltaphi = Phi(gammaI, gammaT, p) + SampleTrimmedLogistic(u0[1], v, - Constant::PI, Constant::PI);
+//    Float phi = phiO + deltaphi;
+
+
     float sinPhi = std::sin(phi);
     float cosPhi = std::cos(phi);
 
@@ -273,7 +286,7 @@ bool HairBcsdf::sample(SurfaceScatterEvent &event) const
     event.pdf = pdf(event);
     event.weight = eval(event)/event.pdf;
     event.sampledLobe = BsdfLobes::GlossyLobe;
-
+    event.weight = (event.wi + 1.f)/2.f;
     return true;
 }
 
