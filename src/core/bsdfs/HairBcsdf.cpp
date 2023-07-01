@@ -5,7 +5,7 @@
 #include "bsdfs/Fresnel.hpp"
 
 #include "math/GaussLegendre.hpp"
-
+#include "Microfacet.hpp"
 #include "io/JsonObject.hpp"
 
 namespace Tungsten {
@@ -19,6 +19,9 @@ HairBcsdf::HairBcsdf()
   _sigmaA(0.0f),
   _roughness(0.1f)
 {
+    alpha_r = 1.5;
+    alpha_tt  = alpha_r * 0.5;
+    alpha_trt = alpha_r * 2;
     _lobes = BsdfLobes(BsdfLobes::GlossyLobe | BsdfLobes::AnisotropicLobe);
 }
 
@@ -180,9 +183,89 @@ rapidjson::Value HairBcsdf::toJson(Allocator &allocator) const
 
     return result;
 }
+#include "Microfacet.hpp"
 
+Vec3f wm_local(const Vec3f & wh,const Vec3f & wm){
+   TangentFrame wmFrame;
+    wmFrame.normal = wm;
+    wmFrame.tangent = Vec3f(0.f, 1.f, 0.f).cross(wm);
+    wmFrame.bitangent = wmFrame.normal.cross(wmFrame.tangent);
+    return wmFrame.toLocal(wh);
+}
+template<class t>
+inline  float dot(t a,t b)
+{
+    return a.dot(b);
+}
+    float getPhi(Vec3f a){
+        return std::atan2(a.x(),a.z());
+    }
+static Vec3f eval_dielectric(Vec3f wi,Vec3f wo,Vec3f wh,Vec3f wm,float alpha,float eta = 1.55){
+    if( dot(wo,wm) < 0)
+    {
+        return Vec3f(1.f,0.f,0.f);
+        auto d1 = dot(wi,wm);
+        auto d2= dot(wo,wm);;
+        return Vec3f(0.f);
+    }
+    if(  dot(wh,wi)>0){
+     //   return Vec3f(0.f,1.f,0.f);
+        return Vec3f(0.f);
+
+    }
+    if(dot(wm,wh)<0)
+    {
+        return Vec3f(0.f,0.f,1.f);
+        return Vec3f(0.f);}
+    float whDotIn =  dot(wh,wi);
+    float whDotOut = dot(wh,wo);
+    float sqrtDeom = eta * whDotOut  +  whDotIn;
+    auto d= Tungsten::Microfacet::D(Microfacet::GGX,alpha,wm_local(wh,wm));
+    auto G = Tungsten::Microfacet::G(Microfacet::GGX,alpha,wm_local(wo,wm), wm_local(wi,wm),wm);
+    return Vec3f(d) * G  *
+std::abs(
+        whDotIn * whDotOut  /
+(wo.dot(wm) * sqrtDeom * sqrtDeom));
+}
+std::pair<float,float> sincos(float  angle)  {
+    return {sin(angle), cos(angle)};
+}
+template<class T>
+inline  T select(bool mask,T a,T b){
+    return mask?a:b;
+}
+    template<class T>
+    inline  T normalize(T a){
+        return a.normalized();
+    }
+std::tuple<float, float, float, float> fresnel(float cos_theta_i, float eta) {
+    bool outside_mask = cos_theta_i > 0;
+    float  rcp_eta = 1.f/eta,
+            eta_it = select(outside_mask, eta, rcp_eta),
+            eta_ti = select(outside_mask, rcp_eta, eta);
+    float  cosThetaT;
+    auto r = Fresnel::dielectricReflectance(1/eta,cos_theta_i,cosThetaT);
+    return {r,cosThetaT,eta_it,eta_ti};
+}
+    inline Vec3f Reflect(const Vec3f &wo, const Vec3f &n) {
+        return normalize(-wo + 2 * dot(wo, n) * n);
+    }
+inline Vec3f sphDir(float phi,float theta){
+    auto [sin_theta, cos_theta] = sincos(theta);
+    auto [sin_gamma,   cos_gamma]   = sincos(phi);
+    return Vec3f (sin_gamma * cos_theta, sin_theta, cos_gamma * cos_theta);
+}
+
+static inline Vec3f refract(const Vec3f &out, Vec3f &wh, float cosThetaT,
+                            float eta) {
+    auto whDotOut = dot(out,wh);
+    return  (eta * whDotOut - (whDotOut>0?1:-1)*cosThetaT)* wh - eta* out ;
+}
+
+bool useGgx  =true;
 Vec3f HairBcsdf::eval(const SurfaceScatterEvent &event) const
 {
+  //  return event.wo.y()>0?Vec3f(1):Vec3f(0.f);
     if (!event.requestedLobe.test(BsdfLobes::GlossyLobe))
         return Vec3f(0.0f);
 
@@ -207,16 +290,124 @@ Vec3f HairBcsdf::eval(const SurfaceScatterEvent &event) const
     float thetaITT  = thetaI +      _scaleAngleRad;
     float thetaITRT = thetaI + 4.0f*_scaleAngleRad;
 
+  //  return Vec3f(M(_vR,   std::sin(thetaIR),   sinThetaO, std::cos(thetaIR),   cosThetaO)) *   _nR->eval(phi, cosThetaD);
     // Evaluate longitudinal scattering functions
     float MR   = M(_vR,   std::sin(thetaIR),   sinThetaO, std::cos(thetaIR),   cosThetaO);
     float MTT  = M(_vTT,  std::sin(thetaITT),  sinThetaO, std::cos(thetaITT),  cosThetaO);
     float MTRT = M(_vTRT, std::sin(thetaITRT), sinThetaO, std::cos(thetaITRT), cosThetaO);
 
+  //  return  MR*  _nR->eval(phi, cosThetaD);
+  //  return MR*  _nR->eval(phi, cosThetaD);
+    
+    if(!useGgx)
+        return  _nTT->eval(phi, cosThetaD);
+//    return   MR*  _nR->eval(phi, cosThetaD)
+//         +  MTT* _nTT->eval(phi, cosThetaD)
+//         + MTRT*_nTRT->eval(phi, cosThetaD);
+
+    auto Nr = _nR->eval(phi, cosThetaD),Ntt = _nTT->eval(phi, cosThetaD),Ntrt = _nTRT->eval(phi, cosThetaD);
+
+    auto wi = event.wo,wo = event.wi;
+    auto h = event.info->uv.y()*2-1;
+    h = 2 * h -1;
+    //return Vec3f(h<0?0:1);
+    float gammaI = std::asin(clamp(h, - 1.0f, 1.0f));
+    float _eta = 1.55;
+    float iorPrime = std::sqrt(_eta * _eta - ( 1.0f - cosThetaD * cosThetaD )) / cosThetaD;
+    float gammaT = std::asin(clamp(h / iorPrime, - 1.0f, 1.0f));
+    auto phiO = std::atan2(wo.x(),wo.z());
+    auto wm_r_phi = phiO - gammaI;
+  //  wm_r_phi = phiO  + gammaI - PI;
+    auto wm_tt_phi = gammaI - (PI - 2 * gammaT);
+    auto wm_trt_phi = gammaI - 2 *(PI - 2 * gammaT);
+    wm_tt_phi = PI + (wm_r_phi - (PI - 2 * gammaT));
+    wm_trt_phi = PI+(wm_tt_phi+PI - (PI - 2 * gammaT));
 
 
-    return   MR*  _nR->eval(phi, cosThetaD)
-         +  MTT* _nTT->eval(phi, cosThetaD)
-         + MTRT*_nTRT->eval(phi, cosThetaD);
+    auto wm_r_theta =   +   2 * _scaleAngleRad;
+    auto wm_tt_theta =(  - _scaleAngleRad);
+    auto wm_trt_theta =(+ 4 * _scaleAngleRad);
+
+//    if(wo.y<0)
+//    {
+//        wm_r_theta = - wm_r_theta;
+//        wm_tt_theta = -wm_tt_theta;
+//        wm_trt_theta = - wm_trt_theta;
+//    }
+
+    auto wm_r = sphDir(wm_r_phi,wm_r_theta);
+    auto wm_tt = sphDir(wm_tt_phi,wm_tt_theta);
+    auto wm_trt = sphDir(wm_trt_phi,wm_trt_theta);
+
+
+
+
+
+    //auto wo_tt = getSmoothDir(wo,gammaI,gammaT,1);//
+ //   auto wo_trt = getSmoothDir(wo,gammaI,gammaT,2);//
+
+    auto [R1, cos_theta_t1, eta_it1, eta_ti1] = fresnel(dot(wo,wm_r), float(_eta));
+    float whDotOut = dot(wo, wm_r);
+    float  cosThetaT;
+    auto eta_i = whDotOut>0?1/_eta:_eta;
+    float  F = Fresnel::dielectricReflectance(1/_eta,whDotOut,cosThetaT);
+    auto wh_r = (wi + wo).normalized();
+
+    
+    auto r_res = Vec3f (Fresnel::dielectricReflectance(1/_eta,wi.dot(wh_r)) * Microfacet::D(Microfacet::GGX,alpha_r,wm_local(wh_r,wm_r))
+            * Microfacet::G(Microfacet::GGX,alpha_r,wm_local(wo,wm_r), wm_local(wi,wm_r),wh_r))/( 4 * abs(dot(wm_r,wo)));
+
+    if(F==1)
+        return r_res;
+    auto wo_tt =  -refract(wo, wm_r, cos_theta_t1, eta_ti1);
+    wo_tt = -((eta_i * whDotOut - (whDotOut>0?1:-1)*cosThetaT)* wm_r - eta_i* wo);
+    auto wo_trt = -Reflect(wo_tt,wm_tt);
+
+
+
+    auto wh_tt = normalize(wi + wo_tt * _eta);
+    auto wh_trt = normalize(wi + wo_trt * _eta);
+
+    if(dot(wm_tt,wo_tt)>0){
+        int k  =1;
+    }
+
+   // return wi.y * wo.y>0?Spectrum(1,0,0):Spectrum (0,1,0)
+    auto tt_res = Ntt;
+   // return Spectrum(wo.y);
+        tt_res   *= eval_dielectric(wi,wo_tt,wh_tt,wm_tt,alpha_tt);
+            auto d  =dot(wm_trt,wo_trt);
+            auto d1 =dot(wm_tt,wo_tt);
+            auto d2 = dot(wm_tt,wi);
+            auto d3= dot(wi,wm_trt);
+//    if(d1<0)
+//        throw("error");
+    //return tt_res;
+
+    //wo wm_r ,wo_tt ,wm_tt wo_trt ,wm_trt
+    std::string phi_s;
+    phi_s = std::to_string(phiO) +","+ std::to_string(wm_r_phi)+","+
+    std::to_string(getPhi(wo_tt)) +","+ std::to_string(wm_tt_phi)+","+
+    std::to_string(getPhi(wo_trt)) +","+ std::to_string(wm_trt_phi)+",";
+    auto trt_res = Ntrt * eval_dielectric(wi,wo_trt,wh_trt,wm_trt,alpha_trt);
+    //return trt_res;
+    //return eval_dielectric(wi,wo_trt,wh_trt,wm_trt,alpha_trt);
+
+//    if(dot(wm_r,wi)<0 || dot(wm_r,wo)<0 || dot(wm_r,wh_r)<0){
+//        r_res = Spectrum(0);
+//    }
+//    auto tt_res = Ntt * eval_dielectric(wi,wo_tt,wh_tt,)
+//
+//    auto tt_res = Ntt * ggx.D(wm_local(wh_real,wh_tt),alpha_tt) * ggx.G(wm_local(getSmoothDir(wo,gammaI,gammaT,1),wh_r), wm_local(wi,wh_r),alpha_tt);
+//    auto trt_res = Ntrt * ggx.D(wm_local(wh_real,wh_trt),alpha_trt) * ggx.G(wm_local(getSmoothDir(wo,gammaI,gammaT,2),wh_r), wm_local(wi,wh_r),alpha_trt);
+ //   return trt_res;
+    auto res =  trt_res;
+    return res;
+   // return tt_res;
+  //  return Spectrum(0);
+    res+=tt_res + r_res;
+    return res;
+    return res;
 }
 
 bool HairBcsdf::sample(SurfaceScatterEvent &event) const
@@ -271,12 +462,12 @@ bool HairBcsdf::sample(SurfaceScatterEvent &event) const
     lobe->sample(cosThetaD, xiN.y(), phi, phiPdf);
 
 
-//    Float gammaI = std::asin(clamp(h, - 1.0f, 1.0f));
-//    Float gammaT = std::asin(clamp(h / iorPrime, - 1.0f, 1.0f));
+//    float gammaI = std::asin(clamp(h, - 1.0f, 1.0f));
+//    float gammaT = std::asin(clamp(h / iorPrime, - 1.0f, 1.0f));
 //
 //
-//    deltaphi = Phi(gammaI, gammaT, p) + SampleTrimmedLogistic(u0[1], v, - Constant::PI, Constant::PI);
-//    Float phi = phiO + deltaphi;
+//    deltaphi = Phi(gammaI, gammaT, p) + SampleTrimmedLogistic(u0[1], v, - PI, PI);
+//    float phi = phiO + deltaphi;
 
 
     float sinPhi = std::sin(phi);
@@ -361,6 +552,8 @@ void HairBcsdf::precomputeAzimuthalDistributions()
 
     // Simple wrapped linear interpolation of the precomputed table
     auto approxD = [&](int p, float phi) {
+        if(useGgx)
+        return 1.f;
         float u = std::abs(phi*(INV_TWO_PI*(NumGaussianSamples - 1)));
         int x0 = int(u);
         int x1 = x0 + 1;

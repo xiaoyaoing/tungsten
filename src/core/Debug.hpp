@@ -10,6 +10,11 @@ namespace Tungsten {
 namespace DebugUtils
 {
 
+    extern const bool OnlyDirectLighting;
+    extern const bool OnlyIndirectLighting;
+    extern const bool OnlyOneThread;
+    extern const bool OnlyShowNormal;
+
 void debugLog(const std::string &message);
 
 }

@@ -281,6 +281,7 @@ Vec3f PathVertex::eval(const Vec3f &d, bool adjoint) const
     case CameraVertex:
         return Vec3f(0.0f);
     case SurfaceVertex:
+        return (_record.surface.event.frame.toLocal(d)+1.f)/2.f;
         return _sampler.bsdf->eval(_record.surface.event.makeWarpedQuery(
                 _record.surface.event.wi,
                 _record.surface.event.frame.toLocal(d)),

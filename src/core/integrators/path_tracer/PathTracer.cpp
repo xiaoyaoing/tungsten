@@ -48,30 +48,38 @@ Vec3f PathTracer::traceSample(Vec2u pixel, PathSampleGenerator &sampler)
     bool didHit = _scene->intersect(ray, data, info);
     bool wasSpecular = true;
     while ((didHit || medium) && bounce < _settings.maxBounces) {
-       // return (info.Ng+1.f)/2;
         bool hitSurface = true;
         if (medium) {
             mediumSample.continuedWeight = throughput;
             if (!medium->sampleDistance(sampler, ray, state, mediumSample))
                 return emission;
             emission += throughput*mediumSample.emission;
-            throughput *= mediumSample.weight;
+          //  throughput *= mediumSample.weight;
+          //  return throughput;
             hitSurface = mediumSample.exited;
+           // return hitSurface?Vec3f(1.0):Vec3f(0.f);
+
             if (hitSurface && !didHit)
                 break;
         }
 
         if (hitSurface) {
+           // if(medium) return Vec3f(0.f);
             hitDistance += ray.farT();
 
             if (mediumBounces == 1 && !_settings.lowOrderScattering)
                 return emission;
 
             surfaceEvent = makeLocalScatterEvent(data, info, ray, &sampler);
+            //return (info.Ng+1.f)/2;
+
             Vec3f transmittance(-1.0f);
+            auto t = emission;
+            
             bool terminate = !handleSurface(surfaceEvent, data, info, medium, bounce, false,
                     _settings.enableLightSampling && (mediumBounces > 0 || _settings.includeSurfaces), ray, throughput, emission, wasSpecular, state, &transmittance);
-          //  return emission;
+            if(DebugUtils::OnlyDirectLighting)
+            return emission;
             if (!info.bsdf->lobes().isPureDirac())
                 if (mediumBounces == 0 && !_settings.includeSurfaces)
                     return emission;
@@ -99,11 +107,16 @@ Vec3f PathTracer::traceSample(Vec2u pixel, PathSampleGenerator &sampler)
             if (terminate)
                 return emission;
         } else {
+
             mediumBounces++;
+            auto t = emission;
 
             if (!handleVolume(sampler, mediumSample, medium, bounce, false,
                 _settings.enableVolumeLightSampling && (mediumBounces > 1 || _settings.lowOrderScattering), ray, throughput, emission, wasSpecular))
-                return emission;
+               return emission;
+
+                if(DebugUtils::OnlyDirectLighting)
+                   return emission;
         }
 
         if (throughput.max() == 0.0f)
@@ -126,6 +139,10 @@ Vec3f PathTracer::traceSample(Vec2u pixel, PathSampleGenerator &sampler)
         if (bounce < _settings.maxBounces)
             didHit = _scene->intersect(ray, data, info);
     }
+//    if(wasSpecular)
+//        return throughput;
+        return (ray.dir()+1.f)/2.f;
+
     if (bounce >= _settings.minBounces && bounce < _settings.maxBounces)
         handleInfiniteLights(data, info, _settings.enableLightSampling, ray, throughput, wasSpecular, emission);
     if (std::isnan(throughput.sum() + emission.sum()))
@@ -139,7 +156,9 @@ Vec3f PathTracer::traceSample(Vec2u pixel, PathSampleGenerator &sampler)
         if (_scene->cam().albedoBuffer() && info.primitive && info.primitive->isInfinite())
             _scene->cam().albedoBuffer()->addSample(pixel, info.primitive->evalDirect(data, info));
     }
-
+    if(emission.luminance()==0){
+        int k =1;
+    }
     return emission;
 
     } catch (std::runtime_error &e) {

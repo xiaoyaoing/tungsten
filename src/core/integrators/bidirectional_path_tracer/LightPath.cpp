@@ -393,7 +393,7 @@ bool LightPath::bdptCameraConnect(const TraceBase &tracer, const LightPath &came
 
     weight = transmittance*splatWeight*b.throughput()*a.eval(edge.d, true)*a.throughput()/edge.rSq;
     weight *= misWeight(camera, emitter, edge, s, 1, ratios);
-
+   weight = a.eval(edge.d, true) ;
     return true;
 }
 

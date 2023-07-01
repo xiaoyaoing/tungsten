@@ -163,7 +163,7 @@ void BidirectionalPathTraceIntegrator::saveOutputs()
     Integrator::saveOutputs();
     if (_settings.imagePyramid) {
         Path pathPrefix = _scene->rendererSettings().outputFile().stripExtension();
-        _imagePyramid->saveBuffers(pathPrefix, _scene->rendererSettings().spp(), false);
+        _imagePyramid->saveBuffers(pathPrefix, _scene->rendererSettings().spp(), true);
     }
 }
 

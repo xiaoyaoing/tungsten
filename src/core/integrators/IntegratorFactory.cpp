@@ -13,6 +13,8 @@ namespace Tungsten {
 
 DEFINE_STRINGABLE_ENUM(IntegratorFactory, "integrator", ({
     {"path_tracer", std::make_shared<PathTraceIntegrator>},
+    {"vol_path_tracer", std::make_shared<PathTraceIntegrator>},
+
     {"light_tracer", std::make_shared<LightTraceIntegrator>},
     {"photon_map", std::make_shared<PhotonMapIntegrator>},
     {"progressive_photon_map", std::make_shared<ProgressivePhotonMapIntegrator>},

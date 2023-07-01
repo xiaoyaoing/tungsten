@@ -97,13 +97,13 @@ bool HomogeneousMedium::sampleDistance(PathSampleGenerator &sampler, const Ray &
             sample.weight *= _sigmaS*_transmittance->sigmaBar();
         }
         sample.weight /= sample.pdf;
+        sample.weight =  _transmittance->eval(tau, state.firstScatter, sample.exited);
         sample.continuedWeight = _sigmaS*_transmittance->sigmaBar()*sample.continuedWeight/(_sigmaT*_transmittance->mediumPdf(continuedTau, state.firstScatter)).avg();
 
         state.advance();
     }
     sample.p = ray.pos() + sample.t*ray.dir();
     sample.phase = _phaseFunction.get();
-
     return true;
 }
 

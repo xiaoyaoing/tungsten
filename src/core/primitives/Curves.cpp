@@ -504,6 +504,7 @@ void Curves::intersectionInfo(const IntersectionTemporary &data, IntersectionInf
         localP -= tangent*(localP.dot(tangent));
         info.Ng = info.Ns = localP.normalized();
     }
+    info.Ng = tangent;
     //info.Ng = Vec3f(double (p0)/double (_nodeData.size()));
     info.uv = isect.uv;
     info.primitive = this;

@@ -30,6 +30,7 @@ class HairBcsdf : public Bsdf
     float _betaR, _betaTT, _betaTRT;
     float _vR, _vTT, _vTRT;
 
+    float alpha_r,alpha_tt,alpha_trt;
     static float I0(float x);
     static float logI0(float x);
 

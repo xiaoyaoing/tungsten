@@ -13,6 +13,7 @@ namespace Tungsten {
 
 class Microfacet
 {
+public:
     enum DistributionEnum
     {
         Beckmann,
@@ -64,8 +65,8 @@ public:
 
     static float G1(DistributionEnum dist, float alpha, const Vec3f &v, const Vec3f &m)
     {
-        if (v.dot(m)*v.z() <= 0.0f)
-            return 0.0f;
+//        if (v.dot(m)*v.z() <= 0.0f)
+//            return 0.0f;
 
         switch (dist) {
         case Beckmann: {

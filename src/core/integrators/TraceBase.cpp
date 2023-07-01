@@ -165,6 +165,7 @@ Vec3f TraceBase::attenuatedEmission(PathSampleGenerator &sampler,
     light.intersectionInfo(data, info);
 
     Vec3f shadow = generalizedShadowRay(sampler, ray, medium, &light, startsOnSurface, true, bounce);
+   // shadow = Vec3f(1.f);
     if (transmittance)
         *transmittance = shadow;
     if (shadow == 0.0f)
@@ -278,8 +279,8 @@ Vec3f TraceBase::lightSample(const Primitive &light,
 
     Vec3f lightF = f*e/sample.pdf;
 
-    if (!light.isDirac())
-        lightF *= SampleWarp::powerHeuristic(sample.pdf, event.info->bsdf->pdf(event));
+//    if (!light.isDirac())
+//        lightF *= SampleWarp::powerHeuristic(sample.pdf, event.info->bsdf->pdf(event));
 
     return lightF;
 }
@@ -343,7 +344,10 @@ Vec3f TraceBase::volumeLightSample(PathSampleGenerator &sampler,
     Vec3f e = attenuatedEmission(sampler, light, medium, lightSample.dist, data, info, bounce, false, ray, nullptr);
     if (e == 0.0f)
         return Vec3f(0.0f);
+   // return Vec3f (lightSample.pdf)/10;
+    //return Vec3f(lightSample.pdf/10.f);
 
+    return e/lightSample.pdf;
     Vec3f lightF = f*e/lightSample.pdf;
 
     if (!light.isDirac())
@@ -393,8 +397,8 @@ Vec3f TraceBase::sampleDirect(const Primitive &light,
         return Vec3f(0.0f);
 
     result += lightSample(light, event, medium, bounce, parentRay, transmittance);
-    if (!light.isDirac())
-        result += bsdfSample(light, event, medium, bounce, parentRay);
+//    if (!light.isDirac())
+//        result += bsdfSample(light, event, medium, bounce, parentRay);
 
     return result;
 }
@@ -407,7 +411,7 @@ Vec3f TraceBase::volumeSampleDirect(const Primitive &light,
                     const Ray &parentRay)
 {
     Vec3f result = volumeLightSample(sampler, mediumSample, light, medium, bounce, parentRay);
-    if (!light.isDirac())
+   if (!light.isDirac())
         result += volumePhaseSample(light, sampler, mediumSample, medium, bounce, parentRay);
 
     return result;
@@ -499,8 +503,8 @@ bool TraceBase::handleVolume(PathSampleGenerator &sampler, MediumSample &mediumS
 {
     wasSpecular = !enableLightSampling;
 
-    if (!adjoint && enableLightSampling && bounce < _settings.maxBounces - 1)
-        emission += throughput*volumeEstimateDirect(sampler, mediumSample, medium, bounce + 1, ray);
+ //   if (!adjoint && enableLightSampling && bounce < _settings.maxBounces - 1)
+   //     emission += throughput*volumeEstimateDirect(sampler, mediumSample, medium, bounce + 1, ray);
 
     PhaseSample phaseSample;
     if (!mediumSample.phase->sample(sampler, ray.dir(), phaseSample))
@@ -574,6 +578,11 @@ void TraceBase::handleInfiniteLights(IntersectionTemporary &data,
     if (_scene->intersectInfinites(ray, data, info)) {
         if (!enableLightSampling || wasSpecular || !info.primitive->isSamplable())
             emission += throughput*info.primitive->evalDirect(data, info);
+    }
+    if(emission.luminance() == 0)
+    {
+        bool c = !enableLightSampling || wasSpecular || !info.primitive->isSamplable();
+        auto t =info.primitive->evalDirect(data, info);
     }
 }
 
